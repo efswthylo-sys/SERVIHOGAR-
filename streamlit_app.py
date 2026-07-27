@@ -14,16 +14,94 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS
-st.markdown("""
+# -----------------------------------------------------------------------------
+# CONTROL DE MODO OSCURO / CLARO
+# -----------------------------------------------------------------------------
+if 'modo_oscuro' not in st.session_state:
+    st.session_state.modo_oscuro = False
+
+# Selector de tema en la parte superior
+col_tema1, col_tema2 = st.columns([3, 1])
+with col_tema2:
+    st.session_state.modo_oscuro = st.toggle("🌙 Modo Oscuro", value=st.session_state.modo_oscuro)
+
+# Configuración de variables CSS según el modo elegido
+if st.session_state.modo_oscuro:
+    bg_color = "#111827"
+    card_bg = "#1F2937"
+    text_color = "#F9FAFB"
+    subtext_color = "#9CA3AF"
+    border_color = "#374151"
+    title_color = "#60A5FA"
+    msg_bg = "#1F2937"
+    badge_cert_bg = "#1E3A8A"
+    badge_cert_txt = "#93C5FD"
+    badge_status_bg = "#78350F"
+    badge_status_txt = "#FDE68A"
+    doc_bg = "#111827"
+else:
+    bg_color = "#FFFFFF"
+    card_bg = "#FFFFFF"
+    text_color = "#1F2937"
+    subtext_color = "#4B5563"
+    border_color = "#E5E7EB"
+    title_color = "#1E3A8A"
+    msg_bg = "#F3F4F6"
+    badge_cert_bg = "#DBEAFE"
+    badge_cert_txt = "#1E40AF"
+    badge_status_bg = "#FEF3C7"
+    badge_status_txt = "#92400E"
+    doc_bg = "#F9FAFB"
+
+# Inyección de estilos dinámicos
+st.markdown(f"""
     <style>
-    .main-title { text-align: center; color: #1E3A8A; font-weight: 800; }
-    .sub-title { text-align: center; color: #4B5563; font-size: 14px; margin-bottom: 20px; }
-    .card { background-color: #FFFFFF; padding: 15px; border-radius: 12px; border: 1px solid #E5E7EB; margin-bottom: 10px; }
-    .badge-cert { background-color: #DBEAFE; color: #1E40AF; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-    .badge-status { background-color: #FEF3C7; color: #92400E; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; }
-    .msg-box { background-color: #F3F4F6; border-left: 4px solid #1E3A8A; padding: 12px; margin-bottom: 10px; border-radius: 4px; }
-    .doc-box { background-color: #F9FAFB; border: 1px dashed #CBD5E1; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+    .stApp {{
+        background-color: {bg_color};
+        color: {text_color};
+    }}
+    .main-title {{ text-align: center; color: {title_color}; font-weight: 800; }}
+    .sub-title {{ text-align: center; color: {subtext_color}; font-size: 14px; margin-bottom: 20px; }}
+    .card {{ 
+        background-color: {card_bg}; 
+        color: {text_color};
+        padding: 15px; 
+        border-radius: 12px; 
+        border: 1px solid {border_color}; 
+        margin-bottom: 10px; 
+    }}
+    .badge-cert {{ 
+        background-color: {badge_cert_bg}; 
+        color: {badge_cert_txt}; 
+        padding: 2px 8px; 
+        border-radius: 12px; 
+        font-size: 11px; 
+        font-weight: bold; 
+    }}
+    .badge-status {{ 
+        background-color: {badge_status_bg}; 
+        color: {badge_status_txt}; 
+        padding: 4px 10px; 
+        border-radius: 8px; 
+        font-size: 12px; 
+        font-weight: bold; 
+    }}
+    .msg-box {{ 
+        background-color: {msg_bg}; 
+        color: {text_color};
+        border-left: 4px solid {title_color}; 
+        padding: 12px; 
+        margin-bottom: 10px; 
+        border-radius: 4px; 
+    }}
+    .doc-box {{ 
+        background-color: {doc_bg}; 
+        color: {text_color};
+        border: 1px dashed {border_color}; 
+        padding: 10px; 
+        border-radius: 8px; 
+        margin-bottom: 10px; 
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -78,7 +156,7 @@ def init_db():
         )
     ''')
     
-    # Crear usuario ADMINISTRADOR maestro si no existe
+    # Usuario ADMINISTRADOR maestro si no existe
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE username = 'admin'")
     if cursor.fetchone()[0] == 0:
         pwd_hash = hashlib.sha256("admin123".encode()).hexdigest()
@@ -151,7 +229,7 @@ if st.session_state.pantalla == 'login':
     # REGISTRO EMPLEADOR
     with tab_reg_empleador:
         st.subheader("Crear Cuenta de Empleador / Empresa")
-        with st.form("form_reg_empleador"):
+        with st.form("form_reg_empleador", clear_on_submit=True):
             emp_nombre = st.text_input("Nombre / Razón Social:")
             emp_email = st.text_input("Correo:")
             emp_phone = st.text_input("Teléfono:")
@@ -167,21 +245,25 @@ if st.session_state.pantalla == 'login':
                                        (emp_user, hash_pass(emp_pass), emp_nombre, emp_email, emp_phone))
                         conn.commit()
                         conn.close()
-                        st.success("¡Cuenta creada! Puedes iniciar sesión.")
-                    except:
-                        st.error("El usuario ya existe.")
+                        st.success("¡Cuenta creada con éxito! Puedes iniciar sesión.")
+                    except sqlite3.IntegrityError:
+                        st.error("El nombre de usuario ya existe.")
+                else:
+                    st.warning("Completa todos los campos obligatorios.")
 
-    # REGISTRO TRABAJADOR
+    # REGISTRO TRABAJADOR (LIMPIEZA AUTOMÁTICA)
     with tab_reg_empleado:
         st.subheader("Postularme como Trabajador")
-        with st.form("form_reg_trabajador"):
+        with st.form("form_reg_trabajador", clear_on_submit=True):
             tra_nombre = st.text_input("Nombre Completo:")
             tra_email = st.text_input("Correo:")
             tra_phone = st.text_input("Teléfono / WhatsApp:")
             tra_cat = st.selectbox("Categoría:", ["Limpieza Doméstica", "Carpintería", "Electricidad", "Jardinería", "Plomería", "Pintura"])
             tra_tarifa = st.number_input("Tarifa por hora ($):", min_value=1.0, value=10.0)
+            
             tra_foto = st.file_uploader("Foto de perfil (JPG/PNG):", type=["jpg", "jpeg", "png"])
             tra_cv = st.file_uploader("Currículum (PDF/Word):", type=["pdf", "doc", "docx"])
+            
             tra_user = st.text_input("Usuario:")
             tra_pass = st.text_input("Contraseña:", type="password")
             
@@ -200,24 +282,24 @@ if st.session_state.pantalla == 'login':
                                        (uid, '🎉 ¡Bienvenido!', 'Tu solicitud está en revisión por el Administrador.', str(date.today())))
                         conn.commit()
                         conn.close()
-                        st.success("¡Registro enviado! Revisa tus mensajes al iniciar sesión.")
-                    except:
-                        st.error("El usuario ya existe.")
+                        st.success("¡Registro enviado con éxito! Los campos se han restablecido.")
+                    except sqlite3.IntegrityError:
+                        st.error("El nombre de usuario ya está registrado.")
                 else:
-                    st.warning("Completa todos los campos y adjunta los archivos.")
+                    st.warning("Completa todos los campos obligatorios y adjunta tus archivos.")
 
 
 # -----------------------------------------------------------------------------
-# PANTALLA 2: PANEL DE ADMINISTRACIÓN COMPLETO (VISOR DE DOCUMENTOS)
+# PANTALLA 2: PANEL DE ADMINISTRACIÓN COMPLETO
 # -----------------------------------------------------------------------------
 elif st.session_state.pantalla == 'panel_admin':
     usr = st.session_state.usuario_logueado
-    st.markdown("<h2 style='color:#1E3A8A;'>🛡️ Panel del Administrador</h2>", unsafe_allow_html=True)
-    st.caption("Gestión Integral y Auditoría de Documentos")
+    st.markdown(f"<h2 style='color:{title_color};'>🛡️ Panel del Administrador</h2>", unsafe_allow_html=True)
+    st.caption("Gestión Integral, Auditoría de Documentos y Permisos")
 
-    # MÉTRICAS RÁPIDAS
     conn = sqlite3.connect('servihogar_app.db')
     cursor = conn.cursor()
+    
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol='empleado' AND certificado=0")
     num_pendientes = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM usuarios WHERE rol='empleado' AND certificado=1")
@@ -238,29 +320,28 @@ elif st.session_state.pantalla == 'panel_admin':
         "📄 Ver Todos los Contratos"
     ])
 
-    # 1. VISOR DE DOCUMENTOS Y APROBACIÓN
+    # 1. APROBAR Y VER DOCUMENTOS
     with tab_aprobar:
-        st.subheader("Solicitudes e Expedientes por Revisar")
+        st.subheader("Expedientes Pendientes por Revisar")
         cursor.execute("SELECT id, nombre, email, telefono, categoria, cv_nombre, foto, cv FROM usuarios WHERE rol='empleado' AND certificado=0")
         pendientes = cursor.fetchall()
         
         if not pendientes:
-            st.info("No hay trámites pendientes de revisión.")
+            st.info("No hay trámites pendientes por revisar.")
         else:
             for p in pendientes:
                 p_id, p_nom, p_em, p_tel, p_cat, p_cv_nom, p_foto, p_cv_data = p
                 with st.expander(f"📁 Expediente: {p_nom} ({p_cat})"):
                     st.write(f"**Correo:** {p_em} | **Teléfono:** {p_tel}")
                     
-                    # VISUALIZACIÓN DE ARCHIVOS SUBIDOS
                     st.markdown("<div class='doc-box'>", unsafe_allow_html=True)
                     col_doc1, col_doc2 = st.columns([1, 2])
                     
                     with col_doc1:
                         if p_foto:
-                            st.image(p_foto, caption="Foto de Perfil Subida", width=120)
+                            st.image(p_foto, caption="Foto de Perfil", width=120)
                         else:
-                            st.warning("Sin foto de perfil.")
+                            st.warning("Sin foto.")
                             
                     with col_doc2:
                         st.write(f"📄 **Documento CV:** {p_cv_nom if p_cv_nom else 'No adjuntado'}")
@@ -293,7 +374,7 @@ elif st.session_state.pantalla == 'panel_admin':
                             st.warning("Solicitud rechazada.")
                             st.rerun()
 
-    # 2. AUDITORÍA GENERAL DE USUARIOS (TODOS LOS PERFILES Y SUS ARCHIVOS)
+    # 2. DIRECTORIO GENERAL Y EDICIÓN/ELIMINACIÓN
     with tab_usuarios:
         st.subheader("Directorio General de Usuarios")
         cursor.execute("SELECT id, username, nombre, rol, categoria, tarifa, certificado, email, telefono, cv_nombre, foto, cv FROM usuarios WHERE rol != 'admin'")
@@ -303,7 +384,6 @@ elif st.session_state.pantalla == 'panel_admin':
             u_id, u_user, u_nom, u_rol, u_cat, u_tar, u_cert, u_em, u_tel, u_cv_nom, u_foto, u_cv_data = u
             
             with st.expander(f"👤 [{u_rol.upper()}] {u_nom} (@{u_user})"):
-                # Mostrar archivos cargados
                 if u_rol == "empleado":
                     col_u1, col_u2 = st.columns([1, 2])
                     with col_u1:
@@ -320,7 +400,6 @@ elif st.session_state.pantalla == 'panel_admin':
                                 key=f"dl_gen_{u_id}"
                             )
                 
-                # Formulario de Edición y Eliminación
                 with st.form(f"form_edit_{u_id}"):
                     nuevo_nombre = st.text_input("Nombre completo:", value=u_nom)
                     nuevo_rol = st.selectbox("Rol:", ["empleado", "empleador"], index=0 if u_rol == "empleado" else 1)
@@ -345,16 +424,16 @@ elif st.session_state.pantalla == 'panel_admin':
                             WHERE id=?
                         """, (nuevo_nombre, nuevo_rol, nueva_cat, nueva_tarifa, 1 if nuevo_cert else 0, u_id))
                         conn.commit()
-                        st.success("¡Datos actualizados correctamente!")
+                        st.success("¡Datos actualizados!")
                         st.rerun()
                         
                     if borrar:
                         cursor.execute("DELETE FROM usuarios WHERE id=?", (u_id,))
                         conn.commit()
-                        st.warning(f"Usuario {u_nom} eliminado de la base de datos.")
+                        st.warning(f"Usuario {u_nom} eliminado.")
                         st.rerun()
 
-    # 3. VER CONTRATOS GENERADOS
+    # 3. VER TODOS LOS CONTRATOS
     with tab_contratos_admin:
         st.subheader("Historial de Contratos Generados")
         cursor.execute("SELECT id, empleador, empleado, fecha, descripcion, estado FROM contratos ORDER BY id DESC")
@@ -383,11 +462,11 @@ elif st.session_state.pantalla == 'panel_admin':
 
 
 # -----------------------------------------------------------------------------
-# PANTALLAS DE EMPLEADOR Y TRABAJADOR
+# PANTALLA 3: CATÁLOGO DE EMPLEADORES
 # -----------------------------------------------------------------------------
 elif st.session_state.pantalla == 'catalogo':
     usr = st.session_state.usuario_logueado
-    st.markdown(f"<h3 style='color:#1E3A8A;'>Bienvenido, {usr['nombre']}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:{title_color};'>Bienvenido, {usr['nombre']}</h3>", unsafe_allow_html=True)
     cat_sel = st.selectbox("Filtrar por categoría:", ["Todas", "Limpieza Doméstica", "Carpintería", "Electricidad", "Jardinería", "Plomería", "Pintura"])
     
     conn = sqlite3.connect('servihogar_app.db')
@@ -421,10 +500,14 @@ elif st.session_state.pantalla == 'catalogo':
         st.session_state.pantalla = 'login'
         st.rerun()
 
+
+# -----------------------------------------------------------------------------
+# PANTALLA 4: CONTRATO DIGITAL
+# -----------------------------------------------------------------------------
 elif st.session_state.pantalla == 'contrato':
     emp = st.session_state.empleado_sel
     usr = st.session_state.usuario_logueado
-    st.markdown("<h2 style='color:#1E3A8A;'>Acuerdo de Servicio Digital</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color:{title_color};'>Acuerdo de Servicio Digital</h2>", unsafe_allow_html=True)
     st.info(f"**Contratante:** {usr['nombre']}\n\n**Empleado:** {emp['nombre']} ({emp['categoria']})")
 
     with st.form("form_contrato_app"):
@@ -447,6 +530,10 @@ elif st.session_state.pantalla == 'contrato':
         st.session_state.pantalla = 'catalogo'
         st.rerun()
 
+
+# -----------------------------------------------------------------------------
+# PANTALLA 5: ÉXITO DE SOLICITUD
+# -----------------------------------------------------------------------------
 elif st.session_state.pantalla == 'exito':
     st.balloons()
     st.success("🎉 ¡Solicitud de Contrato Generada con Éxito!")
@@ -454,9 +541,13 @@ elif st.session_state.pantalla == 'exito':
         st.session_state.pantalla = 'catalogo'
         st.rerun()
 
+
+# -----------------------------------------------------------------------------
+# PANTALLA 6: PANEL DEL TRABAJADOR
+# -----------------------------------------------------------------------------
 elif st.session_state.pantalla == 'panel_empleado':
     usr = st.session_state.usuario_logueado
-    st.markdown(f"<h3 style='color:#1E3A8A;'>Hola, {usr['nombre']}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:{title_color};'>Hola, {usr['nombre']}</h3>", unsafe_allow_html=True)
     
     conn = sqlite3.connect('servihogar_app.db')
     cursor = conn.cursor()
